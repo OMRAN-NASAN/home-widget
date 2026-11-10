@@ -5,30 +5,44 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.widget.RemoteViews
 
-class HomeWidget : AppWidgetProvider() {
+// الأساس المشترك لكل الويدجتات الثلاثة (تلفزيون، LED، مصباح)
+// كل ويدجيت يحدد جهازه عبر deviceId فقط
+abstract class HomeWidget : AppWidgetProvider() {
 
-    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+    abstract val deviceId: String
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
         for (appWidgetId in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.widget_home)
-            views.setOnClickPendingIntent(R.id.btnTv, actionPending(context, Config.TV_POWER, 1))
-            views.setOnClickPendingIntent(R.id.btnLamp, actionPending(context, Config.LAMP_TOGGLE, 2))
-            views.setOnClickPendingIntent(R.id.btnLed, actionPending(context, Config.LED_TOGGLE, 3))
+            views.setTextViewText(R.id.title, Config.titleOf(deviceId))
+
+            // الأزرار تُبنى من KeysService
+            // الـ data يجعل مصدر الأزرار منفصلاً لكل ويدجيت
+            val serviceIntent = Intent(context, KeysService::class.java).apply {
+                putExtra(KeysService.EXTRA_DEVICE, deviceId)
+                data = Uri.parse("remote://$deviceId/$appWidgetId")
+            }
+            views.setRemoteAdapter(R.id.keyGrid, serviceIntent)
+
+            // عند الضغط على أي زر: بث داخلي يرسل الأمر في الخلفية، بدون فتح التطبيق
+            val clickIntent = Intent(context, KeyReceiver::class.java)
+                .addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+            val clickTemplate = PendingIntent.getBroadcast(
+                context,
+                0,
+                clickIntent,
+                PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            views.setPendingIntentTemplate(R.id.keyGrid, clickTemplate)
+
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
-    }
-
-    private fun actionPending(context: Context, url: String, requestCode: Int): PendingIntent {
-        val intent = Intent(context, ActionActivity::class.java).apply {
-            putExtra(ActionActivity.EXTRA_URL, url)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        return PendingIntent.getActivity(
-            context,
-            requestCode,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
     }
 }
