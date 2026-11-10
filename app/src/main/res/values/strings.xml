@@ -1,4 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Home Widget</string>
+<string name="app_name">Home Widget</string>
+<string name="widget_tv">ريموت التلفزيون</string>
+<string name="widget_led">ريموت LED</string>
+<string name="widget_lamp">ريموت المصباح</string>
 </resources>
